@@ -1,18 +1,41 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.filters import SearchFilter, OrderingFilter
+from django_filters.rest_framework import DjangoFilterBackend
+
 from .models import Incident
 from .serializers import (
     IncidentSerializer,
     IncidentStatusHistorySerializer,
     IncidentAssignmentHistorySerializer
 )
+from .filters import IncidentFilter
+
+
+class IncidentPagination(PageNumberPagination):
+    """
+    Production-ready pagination class with dynamic page size overrides.
+    """
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 class IncidentViewSet(viewsets.ModelViewSet):
+    # Optimize query structure to load foreign key instances concurrently (select_related)
     queryset = Incident.objects.all().select_related('reported_by', 'assigned_to')
     serializer_class = IncidentSerializer
     permission_classes = [permissions.IsAuthenticated]
+    
+    # Enable filtering, searching, and sorting capabilities
+    filter_backends = (DjangoFilterBackend, SearchFilter, OrderingFilter)
+    filterset_class = IncidentFilter
+    search_fields = ('title', 'description', 'address')
+    ordering_fields = ('created_at', 'updated_at', 'priority', 'status')
+    ordering = ('-created_at',)
+    pagination_class = IncidentPagination
 
     def perform_create(self, serializer):
         # Automatically assign reported_by user as current authenticated user
@@ -21,12 +44,15 @@ class IncidentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         
+        # Base query optimization applying select_related on related User models
+        qs = self.queryset
+        
         # Superusers, Admins, and Operators can view all incidents in the system
         if user.is_superuser or user.role in [user.Role.ADMIN, user.Role.OPERATOR]:
-            return self.queryset
+            return qs
             
         # Standard Citizens can only view incidents they personally reported
-        return self.queryset.filter(reported_by=user)
+        return qs.filter(reported_by=user)
 
     def destroy(self, request, *args, **kwargs):
         user = request.user
