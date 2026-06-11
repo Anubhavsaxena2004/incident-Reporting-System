@@ -12,6 +12,7 @@ from .serializers import (
     IncidentAssignmentHistorySerializer
 )
 from .filters import IncidentFilter
+from .permissions import IsIncidentOwnerOrAssignee
 
 
 class IncidentPagination(PageNumberPagination):
@@ -27,7 +28,9 @@ class IncidentViewSet(viewsets.ModelViewSet):
     # Optimize query structure to load foreign key instances concurrently (select_related)
     queryset = Incident.objects.all().select_related('reported_by', 'assigned_to')
     serializer_class = IncidentSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    
+    # Configure strict authentication and object-level permissions
+    permission_classes = [permissions.IsAuthenticated, IsIncidentOwnerOrAssignee]
     
     # Enable filtering, searching, and sorting capabilities
     filter_backends = (DjangoFilterBackend, SearchFilter, OrderingFilter)
@@ -47,9 +50,13 @@ class IncidentViewSet(viewsets.ModelViewSet):
         # Base query optimization applying select_related on related User models
         qs = self.queryset
         
-        # Superusers, Admins, and Operators can view all incidents in the system
-        if user.is_superuser or user.role in [user.Role.ADMIN, user.Role.OPERATOR]:
+        # Superusers, Admins get access to all incidents
+        if user.is_superuser or user.role == user.Role.ADMIN:
             return qs
+            
+        # Operators can only view incidents assigned to them
+        if user.role == user.Role.OPERATOR:
+            return qs.filter(assigned_to=user)
             
         # Standard Citizens can only view incidents they personally reported
         return qs.filter(reported_by=user)

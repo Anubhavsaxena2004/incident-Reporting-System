@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from django.utils.html import strip_tags
 from .models import Incident, IncidentStatusHistory, IncidentAssignmentHistory
 
 User = get_user_model()
@@ -44,6 +45,24 @@ class IncidentSerializer(serializers.ModelSerializer):
             'priority', 'reported_by', 'assigned_to', 'remarks', 'created_at', 'updated_at'
         )
         read_only_fields = ('incident_id', 'reported_by', 'created_at', 'updated_at')
+
+    def validate_title(self, value):
+        return self._sanitize_text(value, "title")
+
+    def validate_description(self, value):
+        return self._sanitize_text(value, "description")
+
+    def validate_address(self, value):
+        return self._sanitize_text(value, "address")
+
+    def _sanitize_text(self, value, field_name):
+        # Strip HTML tags and check if the content changes (detecting script/HTML injection)
+        cleaned = strip_tags(value)
+        if cleaned != value:
+            raise serializers.ValidationError(
+                f"HTML/Script tags are not allowed in field '{field_name}'."
+            )
+        return value
 
     def validate(self, attrs):
         request = self.context.get('request')

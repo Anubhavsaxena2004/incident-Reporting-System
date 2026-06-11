@@ -21,6 +21,7 @@ class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserRegisterSerializer
     permission_classes = [AllowAny]
+    throttle_scope = 'auth_register'
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -28,6 +29,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     API endpoint that takes user credentials and returns access, refresh tokens, and user details.
     """
     serializer_class = CustomTokenObtainPairSerializer
+    throttle_scope = 'auth_login'
 
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
