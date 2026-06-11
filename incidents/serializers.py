@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Incident, IncidentStatusHistory
+from .models import Incident, IncidentStatusHistory, IncidentAssignmentHistory
 
 User = get_user_model()
 
@@ -11,6 +11,15 @@ class IncidentStatusHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = IncidentStatusHistory
         fields = ('id', 'old_status', 'new_status', 'changed_by', 'remarks', 'timestamp')
+
+
+class IncidentAssignmentHistorySerializer(serializers.ModelSerializer):
+    assigned_by = serializers.StringRelatedField(read_only=True)
+    assigned_to = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = IncidentAssignmentHistory
+        fields = ('id', 'assigned_by', 'assigned_to', 'remarks', 'timestamp')
 
 
 class IncidentSerializer(serializers.ModelSerializer):
@@ -24,7 +33,7 @@ class IncidentSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False,
         allow_blank=True,
-        help_text="Optional comments outlining the status change context."
+        help_text="Optional comments outlining the assignment or status change context."
     )
 
     class Meta:

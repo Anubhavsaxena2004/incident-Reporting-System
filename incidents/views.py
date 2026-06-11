@@ -2,7 +2,11 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from .models import Incident
-from .serializers import IncidentSerializer, IncidentStatusHistorySerializer
+from .serializers import (
+    IncidentSerializer,
+    IncidentStatusHistorySerializer,
+    IncidentAssignmentHistorySerializer
+)
 
 
 class IncidentViewSet(viewsets.ModelViewSet):
@@ -43,4 +47,14 @@ class IncidentViewSet(viewsets.ModelViewSet):
         incident = self.get_object()
         history = incident.status_history.all().order_by('timestamp')
         serializer = IncidentStatusHistorySerializer(history, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], url_path='assignments')
+    def assignments(self, request, pk=None):
+        """
+        Retrieves the complete assignment history logs for a specific incident.
+        """
+        incident = self.get_object()
+        history = incident.assignment_history.all().order_by('timestamp')
+        serializer = IncidentAssignmentHistorySerializer(history, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)

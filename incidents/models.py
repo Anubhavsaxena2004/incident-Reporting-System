@@ -121,25 +121,34 @@ class Incident(models.Model):
                     )
 
     def save(self, *args, **kwargs):
+        # We run clean validations before write
         self.full_clean()
         
-        # Check for status change to write history log
         is_new = self._state.adding
         old_status = None
+        old_assigned_to = None
         
         if not is_new:
-            old_instance = Incident.objects.filter(pk=self.pk).only('status').first()
+            old_instance = Incident.objects.filter(pk=self.pk).only('status', 'assigned_to').first()
             if old_instance:
                 old_status = old_instance.status
+                old_assigned_to = old_instance.assigned_to
+
+        # workflow auto-transition status based on assignment context:
+        # 1. If assigned_to is set and the status is still REPORTED, transition to ASSIGNED
+        if self.assigned_to and not old_assigned_to and self.status == self.Status.REPORTED:
+            self.status = self.Status.ASSIGNED
+        # 2. If assigned_to is removed/unassigned and status is ASSIGNED, revert back to REPORTED
+        elif not self.assigned_to and old_assigned_to and self.status == self.Status.ASSIGNED:
+            self.status = self.Status.REPORTED
         
         super().save(*args, **kwargs)
         
-        # Track status change
+        # Track status change history
         if is_new or old_status != self.status:
             changed_by = getattr(self, '_changed_by', None)
             if not changed_by:
-                # Default fallback
-                changed_by = self.reported_by if is_new else self.assigned_to
+                changed_by = self.reported_by if is_new else (self.assigned_to or old_assigned_to)
                 
             remarks = getattr(self, '_remarks', '')
             if not remarks:
@@ -152,6 +161,24 @@ class Incident(models.Model):
                 changed_by=changed_by,
                 remarks=remarks
             )
+
+        # Track assignment change history
+        if is_new or old_assigned_to != self.assigned_to:
+            if self.assigned_to or old_assigned_to:
+                changed_by = getattr(self, '_changed_by', None)
+                remarks = getattr(self, '_remarks', '')
+                if not remarks:
+                    if not self.assigned_to:
+                        remarks = f"Incident unassigned (previously assigned to {old_assigned_to.username})."
+                    else:
+                        remarks = f"Incident assigned to {self.assigned_to.username}."
+                
+                IncidentAssignmentHistory.objects.create(
+                    incident=self,
+                    assigned_by=changed_by,
+                    assigned_to=self.assigned_to,
+                    remarks=remarks
+                )
 
     def __str__(self):
         return f"{self.title} ({self.category} - {self.status})"
@@ -198,3 +225,45 @@ class IncidentStatusHistory(models.Model):
 
     def __str__(self):
         return f"{self.incident.title}: {self.old_status} -> {self.new_status} at {self.timestamp}"
+
+
+class IncidentAssignmentHistory(models.Model):
+    incident = models.ForeignKey(
+        Incident,
+        on_delete=models.CASCADE,
+        related_name='assignment_history',
+        help_text="The incident that was assigned."
+    )
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='assignments_made',
+        null=True,
+        blank=True,
+        help_text="The Operator or Admin who assigned the incident."
+    )
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='assignments_received',
+        null=True,
+        blank=True,
+        help_text="The Operator assigned to handle the incident."
+    )
+    remarks = models.TextField(
+        blank=True,
+        help_text="Optional comments/reasons detailing the assignment change."
+    )
+    timestamp = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Timestamp of when the assignment occurred."
+    )
+
+    class Meta:
+        ordering = ['timestamp']
+        verbose_name_plural = "Incident assignment histories"
+
+    def __str__(self):
+        assigner = self.assigned_by.username if self.assigned_by else "System"
+        assignee = self.assigned_to.username if self.assigned_to else "Unassigned"
+        return f"{self.incident.title} assigned to {assignee} by {assigner} at {self.timestamp}"
