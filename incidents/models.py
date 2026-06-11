@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
 
 
 class Incident(models.Model):
@@ -95,8 +96,105 @@ class Incident(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # State transition validation mapping
+    VALID_TRANSITIONS = {
+        Status.REPORTED: [Status.ASSIGNED, Status.CLOSED],
+        Status.ASSIGNED: [Status.IN_PROGRESS, Status.REPORTED],
+        Status.IN_PROGRESS: [Status.RESOLVED, Status.ASSIGNED],
+        Status.RESOLVED: [Status.CLOSED, Status.IN_PROGRESS],
+        Status.CLOSED: [Status.IN_PROGRESS]
+    }
+
     class Meta:
         ordering = ['-created_at']
 
+    def clean(self):
+        super().clean()
+        if self.pk:
+            # Fetch current status in the database to prevent direct modifications bypassing state machines
+            old_instance = Incident.objects.filter(pk=self.pk).only('status').first()
+            if old_instance and old_instance.status != self.status:
+                valid_next = self.VALID_TRANSITIONS.get(old_instance.status, [])
+                if self.status not in valid_next:
+                    raise ValidationError(
+                        f"Invalid status transition from {old_instance.status} to {self.status}."
+                    )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        
+        # Check for status change to write history log
+        is_new = self._state.adding
+        old_status = None
+        
+        if not is_new:
+            old_instance = Incident.objects.filter(pk=self.pk).only('status').first()
+            if old_instance:
+                old_status = old_instance.status
+        
+        super().save(*args, **kwargs)
+        
+        # Track status change
+        if is_new or old_status != self.status:
+            changed_by = getattr(self, '_changed_by', None)
+            if not changed_by:
+                # Default fallback
+                changed_by = self.reported_by if is_new else self.assigned_to
+                
+            remarks = getattr(self, '_remarks', '')
+            if not remarks:
+                remarks = "Incident initially logged." if is_new else f"Status updated to {self.get_status_display()}."
+                
+            IncidentStatusHistory.objects.create(
+                incident=self,
+                old_status=old_status,
+                new_status=self.status,
+                changed_by=changed_by,
+                remarks=remarks
+            )
+
     def __str__(self):
         return f"{self.title} ({self.category} - {self.status})"
+
+
+class IncidentStatusHistory(models.Model):
+    incident = models.ForeignKey(
+        Incident,
+        on_delete=models.CASCADE,
+        related_name='status_history',
+        help_text="The incident whose status was modified."
+    )
+    old_status = models.CharField(
+        max_length=20,
+        choices=Incident.Status.choices,
+        null=True,
+        blank=True,
+        help_text="The status prior to this update."
+    )
+    new_status = models.CharField(
+        max_length=20,
+        choices=Incident.Status.choices,
+        help_text="The status resulting from this update."
+    )
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="The user who performed the status transition."
+    )
+    remarks = models.TextField(
+        blank=True,
+        help_text="Optional comments/reasons detailing the change."
+    )
+    timestamp = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Timestamp of when the transition occurred."
+    )
+
+    class Meta:
+        ordering = ['timestamp']
+        verbose_name_plural = "Incident status histories"
+
+    def __str__(self):
+        return f"{self.incident.title}: {self.old_status} -> {self.new_status} at {self.timestamp}"
