@@ -15,13 +15,9 @@ class IncidentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         
-        # Superusers, Admins, and Dispatchers get access to the full incident list
-        if user.is_superuser or user.role in [user.Role.ADMIN, user.Role.DISPATCHER]:
+        # Superusers, Admins, and Operators get access to the full incident list
+        if user.is_superuser or user.role in [user.Role.ADMIN, user.Role.OPERATOR]:
             return self.queryset
             
-        # Field Responders get access to incidents specifically assigned to them
-        if user.role == user.Role.RESPONDER:
-            return self.queryset.filter(assigned_responder=user)
-            
-        # Standard Reporters / Citizens only get access to incidents they filed
+        # Standard Citizens only get access to incidents they filed
         return self.queryset.filter(reporter=user)

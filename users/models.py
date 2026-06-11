@@ -1,26 +1,54 @@
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
+
+
+class UserManager(BaseUserManager):
+    def create_user(self, username, email=None, password=None, **extra_fields):
+        if not username:
+            raise ValueError('The Username field must be set')
+        email = self.normalize_email(email)
+        role = extra_fields.get('role')
+        if not role:
+            extra_fields['role'] = 'CITIZEN'
+        user = self.model(username=username, email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, username, email=None, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('role', 'ADMIN')
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superuser must have is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser must have is_superuser=True.')
+
+        return self.create_user(username, email, password, **extra_fields)
 
 
 class User(AbstractUser):
     class Role(models.TextChoices):
+        CITIZEN = 'CITIZEN', 'Citizen'
+        OPERATOR = 'OPERATOR', 'Operator'
         ADMIN = 'ADMIN', 'Admin'
-        DISPATCHER = 'DISPATCHER', 'Dispatcher'
-        RESPONDER = 'RESPONDER', 'Responder'
-        REPORTER = 'REPORTER', 'Reporter'
 
     role = models.CharField(
         max_length=20,
         choices=Role.choices,
-        default=Role.REPORTER,
-        help_text="Role determining user authorization levels."
+        default=Role.CITIZEN,
+        help_text="Role determining user authorization and system access levels."
     )
     phone_number = models.CharField(
         max_length=15,
         blank=True,
         null=True,
-        help_text="Contact number for notifications or field coordination."
+        help_text="Contact number for notifications or coordination."
     )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = UserManager()
 
     def __str__(self):
         return f"{self.username} ({self.role})"

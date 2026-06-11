@@ -8,7 +8,7 @@ User = get_user_model()
 class IncidentSerializer(serializers.ModelSerializer):
     reporter = serializers.StringRelatedField(read_only=True)
     assigned_responder = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(role=User.Role.RESPONDER),
+        queryset=User.objects.filter(role=User.Role.OPERATOR),
         required=False,
         allow_null=True
     )
@@ -33,29 +33,18 @@ class IncidentSerializer(serializers.ModelSerializer):
         if self.instance:
             # Check if attempting to assign or reassign field responder
             if 'assigned_responder' in attrs and attrs['assigned_responder'] != self.instance.assigned_responder:
-                if user.role not in [User.Role.ADMIN, User.Role.DISPATCHER]:
+                if user.role not in [User.Role.ADMIN, User.Role.OPERATOR]:
                     raise serializers.ValidationError(
-                        {"assigned_responder": "Only Admins or Dispatchers can assign or change responders."}
+                        {"assigned_responder": "Only Admins or Operators can assign or change responders."}
                     )
             
             # Check if status transitions are valid for this role
             if 'status' in attrs and attrs['status'] != self.instance.status:
-                if user.role not in [User.Role.ADMIN, User.Role.DISPATCHER]:
-                    # Responders can set status to UNDER_INVESTIGATION, RESOLVED, or CLOSED
-                    if user.role == User.Role.RESPONDER:
-                        allowed_responder_statuses = [
-                            Incident.Status.UNDER_INVESTIGATION, 
-                            Incident.Status.RESOLVED,
-                            Incident.Status.CLOSED
-                        ]
-                        if attrs['status'] not in allowed_responder_statuses:
-                            raise serializers.ValidationError(
-                                {"status": f"Responders can only set status to one of: {', '.join(allowed_responder_statuses)}."}
-                            )
-                    # Reporters cannot change status after dispatcher/admin review has moved past DRAFT or REPORTED
-                    elif user.role == User.Role.REPORTER:
+                if user.role not in [User.Role.ADMIN, User.Role.OPERATOR]:
+                    # Citizens cannot transition status once response action has commenced (past DRAFT or REPORTED)
+                    if user.role == User.Role.CITIZEN:
                         if self.instance.status not in [Incident.Status.DRAFT, Incident.Status.REPORTED]:
                             raise serializers.ValidationError(
-                                {"status": "Reporters cannot transition status once response action has commenced."}
+                                {"status": "Citizens cannot transition status once response action has commenced."}
                             )
         return attrs
