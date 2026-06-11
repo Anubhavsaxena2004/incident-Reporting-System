@@ -1,0 +1,1413 @@
+openapi: 3.0.3
+info:
+  title: Emergency Incident Reporting System API
+  version: 1.0.0
+  description: API endpoints for registering users, authentication, reporting incidents,
+    assigning responders, and auditing status transitions.
+paths:
+  /api/incidents/:
+    get:
+      operationId: incidents_list
+      description: API viewset supporting full lifecycle operations for incidents.
+        Filters, sorting, search, and pagination are fully enabled.
+      summary: Incident Management CRUD
+      parameters:
+      - in: query
+        name: assigned_to
+        schema:
+          type: integer
+      - in: query
+        name: category
+        schema:
+          type: string
+          enum:
+          - ACCIDENT
+          - CRIME
+          - FIRE
+          - MEDICAL
+          - NATURAL_DISASTER
+          - OTHER
+        description: |-
+          Categorization of the incident event.
+
+          * `FIRE` - Fire
+          * `ACCIDENT` - Accident
+          * `MEDICAL` - Medical
+          * `CRIME` - Crime
+          * `NATURAL_DISASTER` - Natural Disaster
+          * `OTHER` - Other
+      - in: query
+        name: created_at_gte
+        schema:
+          type: string
+          format: date-time
+        description: Filter incidents created on or after this timestamp (ISO 8601
+          format).
+      - in: query
+        name: created_at_lte
+        schema:
+          type: string
+          format: date-time
+        description: Filter incidents created on or before this timestamp (ISO 8601
+          format).
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: priority
+        schema:
+          type: string
+          enum:
+          - CRITICAL
+          - HIGH
+          - LOW
+          - MEDIUM
+        description: |-
+          System-assigned urgency level.
+
+          * `LOW` - Low
+          * `MEDIUM` - Medium
+          * `HIGH` - High
+          * `CRITICAL` - Critical
+      - in: query
+        name: reported_by
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - ASSIGNED
+          - CLOSED
+          - IN_PROGRESS
+          - REPORTED
+          - RESOLVED
+        description: |-
+          Development status of incident lifecycle.
+
+          * `REPORTED` - Reported
+          * `ASSIGNED` - Assigned
+          * `IN_PROGRESS` - In Progress
+          * `RESOLVED` - Resolved
+          * `CLOSED` - Closed
+      tags:
+      - incidents
+      security:
+      - jwtAuth: []
+      - Bearer: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedIncidentList'
+          description: ''
+    post:
+      operationId: incidents_create
+      description: API viewset supporting full lifecycle operations for incidents.
+        Filters, sorting, search, and pagination are fully enabled.
+      summary: Incident Management CRUD
+      tags:
+      - incidents
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncidentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/IncidentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/IncidentRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - Bearer: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incident'
+          description: ''
+  /api/incidents/{incident_id}/:
+    get:
+      operationId: incidents_retrieve
+      description: API viewset supporting full lifecycle operations for incidents.
+        Filters, sorting, search, and pagination are fully enabled.
+      summary: Incident Management CRUD
+      parameters:
+      - in: path
+        name: incident_id
+        schema:
+          type: string
+          format: uuid
+          description: Unique identifier for the incident.
+        required: true
+      tags:
+      - incidents
+      security:
+      - jwtAuth: []
+      - Bearer: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incident'
+          description: ''
+    put:
+      operationId: incidents_update
+      description: API viewset supporting full lifecycle operations for incidents.
+        Filters, sorting, search, and pagination are fully enabled.
+      summary: Incident Management CRUD
+      parameters:
+      - in: path
+        name: incident_id
+        schema:
+          type: string
+          format: uuid
+          description: Unique identifier for the incident.
+        required: true
+      tags:
+      - incidents
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncidentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/IncidentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/IncidentRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - Bearer: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incident'
+          description: ''
+    patch:
+      operationId: incidents_partial_update
+      description: API viewset supporting full lifecycle operations for incidents.
+        Filters, sorting, search, and pagination are fully enabled.
+      summary: Incident Management CRUD
+      parameters:
+      - in: path
+        name: incident_id
+        schema:
+          type: string
+          format: uuid
+          description: Unique identifier for the incident.
+        required: true
+      tags:
+      - incidents
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedIncidentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedIncidentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedIncidentRequest'
+      security:
+      - jwtAuth: []
+      - Bearer: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incident'
+          description: ''
+    delete:
+      operationId: incidents_destroy
+      description: Removes an incident from the database. Strictly restricted to system
+        Administrators.
+      summary: Delete Incident Record
+      parameters:
+      - in: path
+        name: incident_id
+        schema:
+          type: string
+          format: uuid
+          description: Unique identifier for the incident.
+        required: true
+      tags:
+      - incidents
+      security:
+      - jwtAuth: []
+      - Bearer: []
+      responses:
+        '204':
+          description: No response body
+  /api/incidents/{incident_id}/assignments/:
+    get:
+      operationId: incidents_assignments_list
+      description: Retrieves the complete history logs detailing who assigned the
+        incident and to whom it was delegated.
+      summary: View Incident Assignment History
+      parameters:
+      - in: query
+        name: assigned_to
+        schema:
+          type: integer
+      - in: query
+        name: category
+        schema:
+          type: string
+          enum:
+          - ACCIDENT
+          - CRIME
+          - FIRE
+          - MEDICAL
+          - NATURAL_DISASTER
+          - OTHER
+        description: |-
+          Categorization of the incident event.
+
+          * `FIRE` - Fire
+          * `ACCIDENT` - Accident
+          * `MEDICAL` - Medical
+          * `CRIME` - Crime
+          * `NATURAL_DISASTER` - Natural Disaster
+          * `OTHER` - Other
+      - in: query
+        name: created_at_gte
+        schema:
+          type: string
+          format: date-time
+        description: Filter incidents created on or after this timestamp (ISO 8601
+          format).
+      - in: query
+        name: created_at_lte
+        schema:
+          type: string
+          format: date-time
+        description: Filter incidents created on or before this timestamp (ISO 8601
+          format).
+      - in: path
+        name: incident_id
+        schema:
+          type: string
+          format: uuid
+          description: Unique identifier for the incident.
+        required: true
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: priority
+        schema:
+          type: string
+          enum:
+          - CRITICAL
+          - HIGH
+          - LOW
+          - MEDIUM
+        description: |-
+          System-assigned urgency level.
+
+          * `LOW` - Low
+          * `MEDIUM` - Medium
+          * `HIGH` - High
+          * `CRITICAL` - Critical
+      - in: query
+        name: reported_by
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - ASSIGNED
+          - CLOSED
+          - IN_PROGRESS
+          - REPORTED
+          - RESOLVED
+        description: |-
+          Development status of incident lifecycle.
+
+          * `REPORTED` - Reported
+          * `ASSIGNED` - Assigned
+          * `IN_PROGRESS` - In Progress
+          * `RESOLVED` - Resolved
+          * `CLOSED` - Closed
+      tags:
+      - incidents
+      security:
+      - jwtAuth: []
+      - Bearer: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedIncidentAssignmentHistoryList'
+          description: ''
+  /api/incidents/{incident_id}/timeline/:
+    get:
+      operationId: incidents_timeline_list
+      description: Retrieves the chronologically sorted history logs detailing status
+        transitions (old status -> new status) and remarks.
+      summary: View Incident Status Timeline
+      parameters:
+      - in: query
+        name: assigned_to
+        schema:
+          type: integer
+      - in: query
+        name: category
+        schema:
+          type: string
+          enum:
+          - ACCIDENT
+          - CRIME
+          - FIRE
+          - MEDICAL
+          - NATURAL_DISASTER
+          - OTHER
+        description: |-
+          Categorization of the incident event.
+
+          * `FIRE` - Fire
+          * `ACCIDENT` - Accident
+          * `MEDICAL` - Medical
+          * `CRIME` - Crime
+          * `NATURAL_DISASTER` - Natural Disaster
+          * `OTHER` - Other
+      - in: query
+        name: created_at_gte
+        schema:
+          type: string
+          format: date-time
+        description: Filter incidents created on or after this timestamp (ISO 8601
+          format).
+      - in: query
+        name: created_at_lte
+        schema:
+          type: string
+          format: date-time
+        description: Filter incidents created on or before this timestamp (ISO 8601
+          format).
+      - in: path
+        name: incident_id
+        schema:
+          type: string
+          format: uuid
+          description: Unique identifier for the incident.
+        required: true
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: priority
+        schema:
+          type: string
+          enum:
+          - CRITICAL
+          - HIGH
+          - LOW
+          - MEDIUM
+        description: |-
+          System-assigned urgency level.
+
+          * `LOW` - Low
+          * `MEDIUM` - Medium
+          * `HIGH` - High
+          * `CRITICAL` - Critical
+      - in: query
+        name: reported_by
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - ASSIGNED
+          - CLOSED
+          - IN_PROGRESS
+          - REPORTED
+          - RESOLVED
+        description: |-
+          Development status of incident lifecycle.
+
+          * `REPORTED` - Reported
+          * `ASSIGNED` - Assigned
+          * `IN_PROGRESS` - In Progress
+          * `RESOLVED` - Resolved
+          * `CLOSED` - Closed
+      tags:
+      - incidents
+      security:
+      - jwtAuth: []
+      - Bearer: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedIncidentStatusHistoryList'
+          description: ''
+  /api/users/login/:
+    post:
+      operationId: users_login_create
+      description: Authenticates username and password credentials. Returns a short-lived
+        access JWT, a refresh JWT, and detailed user profile context.
+      summary: User Login (Obtain Tokens)
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomTokenObtainPairRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CustomTokenObtainPairRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CustomTokenObtainPairRequest'
+        required: true
+      security:
+      - Bearer: []
+      responses:
+        '200':
+          description: No response body
+  /api/users/logout/:
+    post:
+      operationId: users_logout_create
+      description: Logs out the user server-side by blacklisting the provided refresh
+        token.
+      summary: User Logout
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LogoutRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LogoutRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - Bearer: []
+      responses:
+        '205':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutSuccessResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutErrorResponse'
+          description: ''
+  /api/users/me/:
+    get:
+      operationId: users_me_retrieve
+      description: Retrieves or updates profile details (email, names, phone number,
+        role) for the currently authenticated user.
+      summary: User Profile Details
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      - Bearer: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+          description: ''
+    put:
+      operationId: users_me_update
+      description: Retrieves or updates profile details (email, names, phone number,
+        role) for the currently authenticated user.
+      summary: User Profile Details
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserDetailRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserDetailRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserDetailRequest'
+      security:
+      - jwtAuth: []
+      - Bearer: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+          description: ''
+    patch:
+      operationId: users_me_partial_update
+      description: Retrieves or updates profile details (email, names, phone number,
+        role) for the currently authenticated user.
+      summary: User Profile Details
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserDetailRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserDetailRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserDetailRequest'
+      security:
+      - jwtAuth: []
+      - Bearer: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+          description: ''
+  /api/users/register/:
+    post:
+      operationId: users_register_create
+      description: Registers a new system user. By default, the registered user is
+        assigned the 'Citizen' role.
+      summary: User Registration
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegisterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserRegisterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserRegisterRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - Bearer: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRegister'
+          description: ''
+  /api/users/token/refresh/:
+    post:
+      operationId: users_token_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+        required: true
+      security:
+      - Bearer: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+components:
+  schemas:
+    BlankEnum:
+      enum:
+      - ''
+    CategoryEnum:
+      enum:
+      - FIRE
+      - ACCIDENT
+      - MEDICAL
+      - CRIME
+      - NATURAL_DISASTER
+      - OTHER
+      type: string
+      description: |-
+        * `FIRE` - Fire
+        * `ACCIDENT` - Accident
+        * `MEDICAL` - Medical
+        * `CRIME` - Crime
+        * `NATURAL_DISASTER` - Natural Disaster
+        * `OTHER` - Other
+    CustomTokenObtainPairRequest:
+      type: object
+      description: |-
+        Extends the default SimpleJWT serializer to customize token payload
+        and login response.
+      properties:
+        username:
+          type: string
+          writeOnly: true
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - password
+      - username
+    Incident:
+      type: object
+      properties:
+        incident_id:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Unique identifier for the incident.
+        title:
+          type: string
+          description: Title summarizing the incident.
+          maxLength: 150
+        description:
+          type: string
+          description: Detailed description of the incident.
+        category:
+          allOf:
+          - $ref: '#/components/schemas/CategoryEnum'
+          description: |-
+            Categorization of the incident event.
+
+            * `FIRE` - Fire
+            * `ACCIDENT` - Accident
+            * `MEDICAL` - Medical
+            * `CRIME` - Crime
+            * `NATURAL_DISASTER` - Natural Disaster
+            * `OTHER` - Other
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          description: WGS 84 latitude coordinates.
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          description: WGS 84 longitude coordinates.
+        address:
+          type: string
+          description: Physical location details.
+        image:
+          type: string
+          format: uri
+          nullable: true
+          description: Attached incident capture.
+        status:
+          allOf:
+          - $ref: '#/components/schemas/NewStatusEnum'
+          description: |-
+            Development status of incident lifecycle.
+
+            * `REPORTED` - Reported
+            * `ASSIGNED` - Assigned
+            * `IN_PROGRESS` - In Progress
+            * `RESOLVED` - Resolved
+            * `CLOSED` - Closed
+        priority:
+          allOf:
+          - $ref: '#/components/schemas/PriorityEnum'
+          description: |-
+            System-assigned urgency level.
+
+            * `LOW` - Low
+            * `MEDIUM` - Medium
+            * `HIGH` - High
+            * `CRITICAL` - Critical
+        reported_by:
+          type: string
+          readOnly: true
+        assigned_to:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - address
+      - created_at
+      - description
+      - incident_id
+      - latitude
+      - longitude
+      - reported_by
+      - title
+      - updated_at
+    IncidentAssignmentHistory:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        assigned_by:
+          type: string
+          readOnly: true
+        assigned_to:
+          type: string
+          readOnly: true
+        remarks:
+          type: string
+          description: Optional comments/reasons detailing the assignment change.
+        timestamp:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Timestamp of when the assignment occurred.
+      required:
+      - assigned_by
+      - assigned_to
+      - id
+      - timestamp
+    IncidentRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          description: Title summarizing the incident.
+          maxLength: 150
+        description:
+          type: string
+          minLength: 1
+          description: Detailed description of the incident.
+        category:
+          allOf:
+          - $ref: '#/components/schemas/CategoryEnum'
+          description: |-
+            Categorization of the incident event.
+
+            * `FIRE` - Fire
+            * `ACCIDENT` - Accident
+            * `MEDICAL` - Medical
+            * `CRIME` - Crime
+            * `NATURAL_DISASTER` - Natural Disaster
+            * `OTHER` - Other
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          description: WGS 84 latitude coordinates.
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          description: WGS 84 longitude coordinates.
+        address:
+          type: string
+          minLength: 1
+          description: Physical location details.
+        image:
+          type: string
+          format: binary
+          nullable: true
+          description: Attached incident capture.
+        status:
+          allOf:
+          - $ref: '#/components/schemas/NewStatusEnum'
+          description: |-
+            Development status of incident lifecycle.
+
+            * `REPORTED` - Reported
+            * `ASSIGNED` - Assigned
+            * `IN_PROGRESS` - In Progress
+            * `RESOLVED` - Resolved
+            * `CLOSED` - Closed
+        priority:
+          allOf:
+          - $ref: '#/components/schemas/PriorityEnum'
+          description: |-
+            System-assigned urgency level.
+
+            * `LOW` - Low
+            * `MEDIUM` - Medium
+            * `HIGH` - High
+            * `CRITICAL` - Critical
+        assigned_to:
+          type: integer
+          nullable: true
+        remarks:
+          type: string
+          writeOnly: true
+          description: Optional comments outlining the assignment or status change
+            context.
+      required:
+      - address
+      - description
+      - latitude
+      - longitude
+      - title
+    IncidentStatusHistory:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        old_status:
+          nullable: true
+          description: |-
+            The status prior to this update.
+
+            * `REPORTED` - Reported
+            * `ASSIGNED` - Assigned
+            * `IN_PROGRESS` - In Progress
+            * `RESOLVED` - Resolved
+            * `CLOSED` - Closed
+          oneOf:
+          - $ref: '#/components/schemas/NewStatusEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        new_status:
+          allOf:
+          - $ref: '#/components/schemas/NewStatusEnum'
+          description: |-
+            The status resulting from this update.
+
+            * `REPORTED` - Reported
+            * `ASSIGNED` - Assigned
+            * `IN_PROGRESS` - In Progress
+            * `RESOLVED` - Resolved
+            * `CLOSED` - Closed
+        changed_by:
+          type: string
+          readOnly: true
+        remarks:
+          type: string
+          description: Optional comments/reasons detailing the change.
+        timestamp:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Timestamp of when the transition occurred.
+      required:
+      - changed_by
+      - id
+      - new_status
+      - timestamp
+    LogoutErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
+    LogoutRequestRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+          description: The refresh token to blacklist (invalidates the session).
+      required:
+      - refresh
+    LogoutSuccessResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          default: Successfully logged out.
+    NewStatusEnum:
+      enum:
+      - REPORTED
+      - ASSIGNED
+      - IN_PROGRESS
+      - RESOLVED
+      - CLOSED
+      type: string
+      description: |-
+        * `REPORTED` - Reported
+        * `ASSIGNED` - Assigned
+        * `IN_PROGRESS` - In Progress
+        * `RESOLVED` - Resolved
+        * `CLOSED` - Closed
+    NullEnum:
+      enum:
+      - null
+    PaginatedIncidentAssignmentHistoryList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncidentAssignmentHistory'
+    PaginatedIncidentList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Incident'
+    PaginatedIncidentStatusHistoryList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncidentStatusHistory'
+    PatchedIncidentRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          description: Title summarizing the incident.
+          maxLength: 150
+        description:
+          type: string
+          minLength: 1
+          description: Detailed description of the incident.
+        category:
+          allOf:
+          - $ref: '#/components/schemas/CategoryEnum'
+          description: |-
+            Categorization of the incident event.
+
+            * `FIRE` - Fire
+            * `ACCIDENT` - Accident
+            * `MEDICAL` - Medical
+            * `CRIME` - Crime
+            * `NATURAL_DISASTER` - Natural Disaster
+            * `OTHER` - Other
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          description: WGS 84 latitude coordinates.
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          description: WGS 84 longitude coordinates.
+        address:
+          type: string
+          minLength: 1
+          description: Physical location details.
+        image:
+          type: string
+          format: binary
+          nullable: true
+          description: Attached incident capture.
+        status:
+          allOf:
+          - $ref: '#/components/schemas/NewStatusEnum'
+          description: |-
+            Development status of incident lifecycle.
+
+            * `REPORTED` - Reported
+            * `ASSIGNED` - Assigned
+            * `IN_PROGRESS` - In Progress
+            * `RESOLVED` - Resolved
+            * `CLOSED` - Closed
+        priority:
+          allOf:
+          - $ref: '#/components/schemas/PriorityEnum'
+          description: |-
+            System-assigned urgency level.
+
+            * `LOW` - Low
+            * `MEDIUM` - Medium
+            * `HIGH` - High
+            * `CRITICAL` - Critical
+        assigned_to:
+          type: integer
+          nullable: true
+        remarks:
+          type: string
+          writeOnly: true
+          description: Optional comments outlining the assignment or status change
+            context.
+    PatchedUserDetailRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        phone_number:
+          type: string
+          nullable: true
+          description: Contact number for notifications or coordination.
+          maxLength: 15
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          description: |-
+            Role determining user authorization and system access levels.
+
+            * `CITIZEN` - Citizen
+            * `OPERATOR` - Operator
+            * `ADMIN` - Admin
+    PriorityEnum:
+      enum:
+      - LOW
+      - MEDIUM
+      - HIGH
+      - CRITICAL
+      type: string
+      description: |-
+        * `LOW` - Low
+        * `MEDIUM` - Medium
+        * `HIGH` - High
+        * `CRITICAL` - Critical
+    RoleEnum:
+      enum:
+      - CITIZEN
+      - OPERATOR
+      - ADMIN
+      type: string
+      description: |-
+        * `CITIZEN` - Citizen
+        * `OPERATOR` - Operator
+        * `ADMIN` - Admin
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    TokenRefreshRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+      required:
+      - refresh
+    UserDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        phone_number:
+          type: string
+          nullable: true
+          description: Contact number for notifications or coordination.
+          maxLength: 15
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          description: |-
+            Role determining user authorization and system access levels.
+
+            * `CITIZEN` - Citizen
+            * `OPERATOR` - Operator
+            * `ADMIN` - Admin
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - username
+    UserDetailRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        phone_number:
+          type: string
+          nullable: true
+          description: Contact number for notifications or coordination.
+          maxLength: 15
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          description: |-
+            Role determining user authorization and system access levels.
+
+            * `CITIZEN` - Citizen
+            * `OPERATOR` - Operator
+            * `ADMIN` - Admin
+    UserRegister:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        phone_number:
+          type: string
+          nullable: true
+          description: Contact number for notifications or coordination.
+          maxLength: 15
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          description: |-
+            Role determining user authorization and system access levels.
+
+            * `CITIZEN` - Citizen
+            * `OPERATOR` - Operator
+            * `ADMIN` - Admin
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - username
+    UserRegisterRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 1
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        phone_number:
+          type: string
+          nullable: true
+          description: Contact number for notifications or coordination.
+          maxLength: 15
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          description: |-
+            Role determining user authorization and system access levels.
+
+            * `CITIZEN` - Citizen
+            * `OPERATOR` - Operator
+            * `ADMIN` - Admin
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - password
+      - username
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema
 
 from .models import Incident
 from .serializers import (
@@ -24,6 +25,10 @@ class IncidentPagination(PageNumberPagination):
     max_page_size = 100
 
 
+@extend_schema(
+    summary="Incident Management CRUD",
+    description="API viewset supporting full lifecycle operations for incidents. Filters, sorting, search, and pagination are fully enabled."
+)
 class IncidentViewSet(viewsets.ModelViewSet):
     # Optimize query structure to load foreign key instances concurrently (select_related)
     queryset = Incident.objects.all().select_related('reported_by', 'assigned_to')
@@ -61,6 +66,10 @@ class IncidentViewSet(viewsets.ModelViewSet):
         # Standard Citizens can only view incidents they personally reported
         return qs.filter(reported_by=user)
 
+    @extend_schema(
+        summary="Delete Incident Record",
+        description="Removes an incident from the database. Strictly restricted to system Administrators."
+    )
     def destroy(self, request, *args, **kwargs):
         user = request.user
         
@@ -72,6 +81,11 @@ class IncidentViewSet(viewsets.ModelViewSet):
             )
         return super().destroy(request, *args, **kwargs)
 
+    @extend_schema(
+        summary="View Incident Status Timeline",
+        description="Retrieves the chronologically sorted history logs detailing status transitions (old status -> new status) and remarks.",
+        responses={200: IncidentStatusHistorySerializer(many=True)}
+    )
     @action(detail=True, methods=['get'], url_path='timeline')
     def timeline(self, request, pk=None):
         """
@@ -82,6 +96,11 @@ class IncidentViewSet(viewsets.ModelViewSet):
         serializer = IncidentStatusHistorySerializer(history, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        summary="View Incident Assignment History",
+        description="Retrieves the complete history logs detailing who assigned the incident and to whom it was delegated.",
+        responses={200: IncidentAssignmentHistorySerializer(many=True)}
+    )
     @action(detail=True, methods=['get'], url_path='assignments')
     def assignments(self, request, pk=None):
         """

@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'django_filters',
+    'drf_spectacular',
 
     # Custom Apps
     'users.apps.UsersConfig',
@@ -171,7 +172,8 @@ REST_FRAMEWORK = {
         'user': '1000/day',
         'auth_register': '5/min',
         'auth_login': '10/min',
-    }
+    },
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 
@@ -214,4 +216,20 @@ CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'False').lower() == 'true'
+
+# OpenAPI / Swagger Settings
+# https://drf-spectacular.readthedocs.io/en/latest/settings.html
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Emergency Incident Reporting System API',
+    'DESCRIPTION': 'API endpoints for registering users, authentication, reporting incidents, assigning responders, and auditing status transitions.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SECURITY': [
+        {
+            'Bearer': [],
+        }
+    ],
+    'COMPONENT_SPLIT_REQUEST': True,
+}
+
 

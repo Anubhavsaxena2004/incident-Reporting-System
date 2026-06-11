@@ -17,3 +17,6 @@ Pillow>=10.0.0
 
 # Advanced Filtering
 django-filter>=24.0
+
+# Swagger / OpenAPI Documentation
+drf-spectacular>=0.27.0
