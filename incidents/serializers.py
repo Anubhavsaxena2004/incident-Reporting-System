@@ -6,9 +6,9 @@ User = get_user_model()
 
 
 class IncidentSerializer(serializers.ModelSerializer):
-    reporter = serializers.StringRelatedField(read_only=True)
-    assigned_responder = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(role=User.Role.OPERATOR),
+    reported_by = serializers.StringRelatedField(read_only=True)
+    assigned_to = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(role__in=[User.Role.OPERATOR, User.Role.ADMIN]),
         required=False,
         allow_null=True
     )
@@ -16,35 +16,55 @@ class IncidentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Incident
         fields = (
-            'id', 'title', 'description', 'location', 'status',
-            'priority', 'reporter', 'assigned_responder', 'created_at', 'updated_at'
+            'incident_id', 'title', 'description', 'category',
+            'latitude', 'longitude', 'address', 'image', 'status',
+            'priority', 'reported_by', 'assigned_to', 'created_at', 'updated_at'
         )
-        read_only_fields = ('id', 'reporter', 'created_at', 'updated_at')
+        read_only_fields = ('incident_id', 'reported_by', 'created_at', 'updated_at')
 
     def validate(self, attrs):
-        # Retrieve user context from request
         request = self.context.get('request')
         if not request or not request.user:
             return attrs
-            
+        
         user = request.user
         
-        # If updating an existing incident (Instance update checks)
-        if self.instance:
-            # Check if attempting to assign or reassign field responder
-            if 'assigned_responder' in attrs and attrs['assigned_responder'] != self.instance.assigned_responder:
-                if user.role not in [User.Role.ADMIN, User.Role.OPERATOR]:
+        # 1. Validation for Creating Incidents
+        if not self.instance:
+            if user.role == User.Role.CITIZEN:
+                if 'status' in attrs and attrs['status'] != Incident.Status.REPORTED:
+                    raise serializers.ValidationError({"status": "Citizens cannot specify a custom initial status."})
+                if 'assigned_to' in attrs and attrs['assigned_to'] is not None:
+                    raise serializers.ValidationError({"assigned_to": "Citizens cannot assign responders."})
+
+        # 2. Validation for Updating Incidents (Ownership Rules)
+        else:
+            if user.role == User.Role.CITIZEN:
+                # Citizens can only modify their reported incidents if status is still 'REPORTED'
+                if self.instance.status != Incident.Status.REPORTED:
                     raise serializers.ValidationError(
-                        {"assigned_responder": "Only Admins or Operators can assign or change responders."}
+                        {"non_field_errors": "Citizens cannot modify incidents after an Operator has processed them."}
                     )
-            
-            # Check if status transitions are valid for this role
-            if 'status' in attrs and attrs['status'] != self.instance.status:
-                if user.role not in [User.Role.ADMIN, User.Role.OPERATOR]:
-                    # Citizens cannot transition status once response action has commenced (past DRAFT or REPORTED)
-                    if user.role == User.Role.CITIZEN:
-                        if self.instance.status not in [Incident.Status.DRAFT, Incident.Status.REPORTED]:
-                            raise serializers.ValidationError(
-                                {"status": "Citizens cannot transition status once response action has commenced."}
-                            )
+                # Citizens cannot modify workflow fields
+                if 'status' in attrs and attrs['status'] != self.instance.status:
+                    raise serializers.ValidationError({"status": "Citizens cannot modify status."})
+                if 'priority' in attrs and attrs['priority'] != self.instance.priority:
+                    raise serializers.ValidationError({"priority": "Citizens cannot modify priority."})
+                if 'assigned_to' in attrs and attrs['assigned_to'] != self.instance.assigned_to:
+                    raise serializers.ValidationError({"assigned_to": "Citizens cannot assign or modify responders."})
+
+            elif user.role == User.Role.OPERATOR:
+                # Operators cannot change the reporter
+                if 'reported_by' in attrs and attrs['reported_by'] != self.instance.reported_by:
+                    raise serializers.ValidationError({"reported_by": "Reporters cannot be modified."})
+
+        # 3. Geo Coordinates Range checks
+        latitude = attrs.get('latitude', self.instance.latitude if self.instance else None)
+        if latitude is not None and (latitude < -90 or latitude > 90):
+            raise serializers.ValidationError({"latitude": "Latitude must be between -90 and 90 degrees."})
+
+        longitude = attrs.get('longitude', self.instance.longitude if self.instance else None)
+        if longitude is not None and (longitude < -180 or longitude > 180):
+            raise serializers.ValidationError({"longitude": "Longitude must be between -180 and 180 degrees."})
+
         return attrs
