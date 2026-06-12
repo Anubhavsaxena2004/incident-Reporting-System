@@ -191,9 +191,11 @@ The `/api/incidents/` endpoint supports advanced URL queries:
 
 ## 🛠️ Interactive Documentation (OpenAPI / Swagger UI)
 Interactive sandboxes compile automatically from Django model structures and are routed at:
-- **Swagger UI**: [http://localhost:8000/api/schema/swagger-ui/](http://localhost:8000/api/schema/swagger-ui/)
-- **ReDoc reference**: [http://localhost:8000/api/schema/redoc/](http://localhost:8000/api/schema/redoc/)
-- **Raw Schema Description**: [http://localhost:8000/api/schema/](http://localhost:8000/api/schema/)
+- **Swagger UI (Production)**: [http://52.59.254.115/api/schema/swagger-ui/](http://52.59.254.115/api/schema/swagger-ui/)
+- **ReDoc reference (Production)**: [http://52.59.254.115/api/schema/redoc/](http://52.59.254.115/api/schema/redoc/)
+- **Raw Schema Description (Production)**: [http://52.59.254.115/api/schema/](http://52.59.254.115/api/schema/)
+- **Local Dev Swagger UI**: [http://localhost:8000/api/schema/swagger-ui/](http://localhost:8000/api/schema/swagger-ui/)
+
 
 ---
 

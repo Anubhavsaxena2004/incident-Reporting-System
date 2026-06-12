@@ -46,6 +46,36 @@ class IncidentSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('incident_id', 'reported_by', 'created_at', 'updated_at')
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        
+        # Format reported_by user detail
+        if instance.reported_by:
+            representation['reported_by'] = {
+                'id': instance.reported_by.id,
+                'username': instance.reported_by.username,
+                'email': instance.reported_by.email,
+                'role': instance.reported_by.role,
+                'phone_number': instance.reported_by.phone_number,
+            }
+        else:
+            representation['reported_by'] = None
+
+        # Format assigned_to user detail
+        if instance.assigned_to:
+            representation['assigned_to'] = {
+                'id': instance.assigned_to.id,
+                'username': instance.assigned_to.username,
+                'email': instance.assigned_to.email,
+                'role': instance.assigned_to.role,
+                'phone_number': instance.assigned_to.phone_number,
+            }
+        else:
+            representation['assigned_to'] = None
+
+        return representation
+
+
     def validate_title(self, value):
         return self._sanitize_text(value, "title")
 
