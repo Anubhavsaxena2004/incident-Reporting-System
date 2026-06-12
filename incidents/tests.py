@@ -382,3 +382,42 @@ class IncidentLifecycleTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['assigned_to'], str(self.operator1))
+
+    # --- CACHING TESTS ---
+
+    def test_incident_list_caching_and_invalidation(self):
+        """
+        Verify that the incident list and details are cached and invalidated correctly.
+        """
+        from django.core.cache import cache
+        cache.clear()
+
+        # Create an incident
+        inc = Incident.objects.create(
+            title='Fire in Sector 5', description='Fire', category='FIRE',
+            latitude=0, longitude=0, address='Loc', reported_by=self.citizen
+        )
+        url = reverse('incident-detail', args=[inc.incident_id])
+
+        self.set_auth(self.citizen_token)
+
+        # 1. First request fetches detail and populates cache
+        response1 = self.client.get(url)
+        self.assertEqual(response1.status_code, status.HTTP_200_OK)
+        
+        # Check that cache is set
+        detail_cache_key = f"incident_detail:{inc.incident_id}"
+        self.assertIsNotNone(cache.get(detail_cache_key))
+
+        # Check list caching
+        list_response1 = self.client.get(self.list_url)
+        self.assertEqual(list_response1.status_code, status.HTTP_200_OK)
+        
+        list_cache_key = f"incidents_list:{self.citizen.id}:"
+        self.assertIsNotNone(cache.get(list_cache_key))
+
+        # 2. Update the incident - should invalidate cache
+        self.client.patch(url, {'title': 'Fire in Sector 5 Updated'}, format='json')
+        self.assertIsNone(cache.get(detail_cache_key))
+        self.assertIsNone(cache.get(list_cache_key))
+

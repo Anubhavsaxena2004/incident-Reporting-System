@@ -68,21 +68,75 @@ docker compose exec web python manage.py migrate
 docker compose down
 ```
 
-### 2. Production Stack (Gunicorn + Nginx + PostgreSQL + Volumes)
-Orchestrates a secure Gunicorn WSGI server proxied behind Nginx serving static and media assets.
+### 2. Production Stack (Gunicorn + Nginx + Postgres + Redis + Volumes)
+Orchestrates a secure Gunicorn WSGI server proxied behind Nginx (directly exposing ports `80` and `443`), utilizing Postgres for database storage and Redis for views caching.
+
+#### AWS EC2 Single-Instance Deployment Instructions
+
+##### Step 1: Provision the AWS EC2 Instance
+- Launch a new EC2 Instance (Ubuntu 22.04 LTS is recommended, `t3.micro` or `t3.medium`).
+- **Security Group Settings**: Add inbound rules to allow:
+  - **SSH** (Port 22) - restricted to your IP.
+  - **HTTP** (Port 80) - Anywhere (`0.0.0.0/0`, `::/0`).
+  - **HTTPS** (Port 443) - Anywhere (`0.0.0.0/0`, `::/0`).
+
+##### Step 2: Install Docker and Docker Compose on EC2
+SSH into your instance and install Docker:
 ```bash
-# Build and boot production containers
+# SSH connect to your host
+ssh -i your-key.pem ubuntu@your-ec2-public-ip
+
+# Update packages and install Docker
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose-v2
+
+# Start and enable Docker
+sudo systemctl enable docker
+sudo systemctl start docker
+
+# Add your user to the docker group (avoids typing sudo for docker commands)
+sudo usermod -aG docker $USER
+
+# Log out and log back in to apply the group membership changes
+exit
+```
+
+##### Step 3: Clone Code and Populate Production Environment
+```bash
+# Reconnect to the instance
+ssh -i your-key.pem ubuntu@your-ec2-public-ip
+
+# Clone the repository
+git clone https://github.com/Anubhavsaxena2004/incident-Reporting-System.git
+cd incident-Reporting-System
+
+# Create production environment file from the template
+cp .env.prod.example .env.prod
+
+# Edit .env.prod to populate secrets
+nano .env.prod
+```
+*Note: Make sure to set `DEBUG=False` and include your EC2 public IP or domain name under `ALLOWED_HOSTS`.*
+
+##### Step 4: Boot the Stack
+Build and launch all containers in background mode:
+```bash
+# Build and run containers
 docker compose -f docker-compose.prod.yml up --build -d
 
-# Execute database migrations
-docker compose -f docker-compose.prod.yml exec web python manage.py migrate
+# Check status of running containers
+docker compose -f docker-compose.prod.yml ps
 
-# Collect static assets (automatically triggered during startup)
-docker compose -f docker-compose.prod.yml exec web python manage.py collectstatic --noinput
-
-# Verify container health and logs
+# Inspect logs to verify successful boot
 docker compose -f docker-compose.prod.yml logs -f web
 ```
+*(The startup entrypoint automatically runs database migrations and collects static files).*
+
+##### Step 5: Create Admin Superuser
+```bash
+docker compose -f docker-compose.prod.yml exec web python manage.py createsuperuser
+```
+
 
 ---
 

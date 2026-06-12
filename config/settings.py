@@ -78,7 +78,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 
 import sys
-# Database configuration (Uses PostgreSQL by default, swaps to in-memory SQLite during test runs)
+# Database & Cache configuration (swaps to local/in-memory configuration during test runs)
 if 'test' in sys.argv:
     DATABASES = {
         'default': {
@@ -86,15 +86,30 @@ if 'test' in sys.argv:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'incident-test-cache',
+        }
+    }
 else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': os.getenv('DB_NAME', 'incident_db'),
-            'USER': os.getenv('DB_USER', 'incident_user'),
-            'PASSWORD': os.getenv('DB_PASSWORD', 'incident_secure_password'),
-            'HOST': os.getenv('DB_HOST', 'db'),
+            'USER': os.getenv('DB_USER', 'postgres'),
+            'PASSWORD': os.getenv('DB_PASSWORD', 'anubhav2004'),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
             'PORT': os.getenv('DB_PORT', '5432'),
+        }
+    }
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            }
         }
     }
 

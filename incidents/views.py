@@ -5,6 +5,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
+from django.core.cache import cache
 
 from .models import Incident
 from .serializers import (
@@ -45,9 +46,57 @@ class IncidentViewSet(viewsets.ModelViewSet):
     ordering = ('-created_at',)
     pagination_class = IncidentPagination
 
+    def _clear_cache(self, incident_id=None):
+        """
+        Clears the cached incident lists and details to prevent serving stale data.
+        """
+        if hasattr(cache, 'delete_pattern'):
+            try:
+                cache.delete_pattern("incidents_list:*")
+            except Exception:
+                cache.clear()
+        else:
+            cache.clear()
+
+        if incident_id:
+            cache.delete(f"incident_detail:{incident_id}")
+
+    def list(self, request, *args, **kwargs):
+        user = request.user
+        query_string = request.META.get('QUERY_STRING', '')
+        # Segment cache keys by user id and filter/search query strings
+        cache_key = f"incidents_list:{user.id}:{query_string}"
+
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        response = super().list(request, *args, **kwargs)
+        # Cache listing response for 5 minutes (300s)
+        cache.set(cache_key, response.data, timeout=300)
+        return response
+
+    def retrieve(self, request, *args, **kwargs):
+        incident_id = kwargs.get('pk')
+        cache_key = f"incident_detail:{incident_id}"
+
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response(cached_data)
+
+        response = super().retrieve(request, *args, **kwargs)
+        # Cache detailed incident for 5 minutes (300s)
+        cache.set(cache_key, response.data, timeout=300)
+        return response
+
     def perform_create(self, serializer):
         # Automatically assign reported_by user as current authenticated user
         serializer.save(reported_by=self.request.user)
+        self._clear_cache()
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        self._clear_cache(incident_id=instance.incident_id)
 
     def get_queryset(self):
         user = self.request.user
@@ -79,7 +128,12 @@ class IncidentViewSet(viewsets.ModelViewSet):
                 {"detail": "Permission denied. Only Administrators can delete incident records."},
                 status=status.HTTP_403_FORBIDDEN
             )
-        return super().destroy(request, *args, **kwargs)
+        
+        instance = self.get_object()
+        incident_id = instance.incident_id
+        response = super().destroy(request, *args, **kwargs)
+        self._clear_cache(incident_id=incident_id)
+        return response
 
     @extend_schema(
         summary="View Incident Status Timeline",
